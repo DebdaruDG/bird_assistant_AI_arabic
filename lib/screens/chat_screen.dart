@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:bird_instructor/utils/app_color_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -106,10 +108,12 @@ class ChatScreen extends StatelessWidget {
                           ),
                           itemCount: chatState.chats.length,
                           itemBuilder: (context, index) {
+                            log('chatState.isLoading - ${chatState.isLoading}');
                             final message =
                                 chatState.chats[chatState.chats.length -
                                     1 -
                                     index];
+
                             return _buildAudioMessage(
                               context,
                               message,
@@ -149,6 +153,10 @@ class ChatScreen extends StatelessWidget {
   ) {
     final isUser = message.isUser;
     final audioBytes = message.audioBytes;
+
+    if (chatState.isLoading) {
+      return TypingIndicator();
+    }
 
     if (audioBytes == null) {
       return const SizedBox.shrink();

@@ -48,11 +48,11 @@ class InputSection extends StatelessWidget {
                                   : 'Type a message...',
                           hintStyle: const TextStyle(color: Colors.black45),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
                           ),
                           suffixIcon: IconButton(

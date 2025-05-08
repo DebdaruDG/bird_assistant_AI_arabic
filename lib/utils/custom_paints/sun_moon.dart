@@ -13,31 +13,77 @@ class SunMoonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint();
+    final double radius = size.width * 0.3;
 
     if (isDarkMode) {
-      // Draw moon
-      paint.color = Colors.grey.shade300;
-      canvas.drawCircle(center, size.width * 0.3, paint);
+      // Moon with gradient and more craters
+      final gradient = RadialGradient(
+        colors: [Colors.grey.shade300, Colors.grey.shade800],
+        center: Alignment.center,
+        radius: 0.8,
+      );
 
-      // Draw craters
-      paint.color = Colors.grey.shade600;
-      canvas.drawCircle(center.translate(-6, -4), 3, paint);
-      canvas.drawCircle(center.translate(4, 6), 2, paint);
-      canvas.drawCircle(center.translate(8, -5), 1.5, paint);
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final paint = Paint()..shader = gradient.createShader(rect);
+      canvas.drawCircle(center, radius, paint);
+
+      // Glow
+      canvas.drawCircle(
+        center,
+        radius + 4,
+        Paint()
+          ..color = Colors.blueGrey.withOpacity(0.2)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // Craters
+      final craterPaint = Paint()..color = Colors.grey.shade600;
+      final craterOffsets = [
+        Offset(-6, -4),
+        Offset(4, 6),
+        Offset(8, -5),
+        Offset(-10, 3),
+        Offset(2, -9),
+        Offset(6, 9),
+      ];
+      final craterSizes = [3.0, 2.0, 1.5, 2.5, 1.0, 2.2];
+
+      for (int i = 0; i < craterOffsets.length; i++) {
+        canvas.drawCircle(
+          center.translate(craterOffsets[i].dx, craterOffsets[i].dy),
+          craterSizes[i],
+          craterPaint,
+        );
+      }
     } else {
-      // Draw sun
-      paint.color = Colors.amber;
-      canvas.drawCircle(center, size.width * 0.3, paint);
+      // Sun with gradient, more rays, and glow
+      final gradient = RadialGradient(
+        colors: [Colors.amber, Colors.orange],
+        center: Alignment.center,
+        radius: 0.8,
+      );
 
-      // Draw sun rays
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final paint = Paint()..shader = gradient.createShader(rect);
+      canvas.drawCircle(center, radius, paint);
+
+      // Glow
+      canvas.drawCircle(
+        center,
+        radius + 4,
+        Paint()
+          ..color = Colors.amberAccent.withOpacity(0.2)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // Sun rays (16 total)
       final rayPaint =
           Paint()
             ..color = Colors.amberAccent
             ..strokeWidth = 2;
 
-      for (int i = 0; i < 8; i++) {
-        final angle = i * (360 / 8) * 3.1416 / 180;
+      for (int i = 0; i < 16; i++) {
+        final angle = i * (pi / 8);
         final start = center + Offset.fromDirection(angle, size.width * 0.35);
         final end = center + Offset.fromDirection(angle, size.width * 0.45);
         canvas.drawLine(start, end, rayPaint);
@@ -61,33 +107,80 @@ class AnimatedSunMoonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint();
+    final double radius = size.width * 0.3;
 
     if (isDarkMode) {
-      // Draw moon (floating effect)
+      // Moon: Gradient surface + floating effect + more craters
       final floatOffset = Offset(0, 5 * sin(animationValue * 2 * pi));
       final moonCenter = center + floatOffset;
 
-      paint.color = Colors.grey.shade300;
-      canvas.drawCircle(moonCenter, size.width * 0.3, paint);
+      final gradient = RadialGradient(
+        colors: [Colors.grey.shade300, Colors.grey.shade800],
+        center: Alignment.center,
+        radius: 0.8,
+      );
 
-      paint.color = Colors.grey.shade600;
-      canvas.drawCircle(moonCenter.translate(-6, -4), 3, paint);
-      canvas.drawCircle(moonCenter.translate(4, 6), 2, paint);
-      canvas.drawCircle(moonCenter.translate(8, -5), 1.5, paint);
+      final rect = Rect.fromCircle(center: moonCenter, radius: radius);
+      final paint = Paint()..shader = gradient.createShader(rect);
+      canvas.drawCircle(moonCenter, radius, paint);
+
+      // Glow effect
+      canvas.drawCircle(
+        moonCenter,
+        radius + 4,
+        Paint()
+          ..color = Colors.blueGrey.withOpacity(0.2)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // Craters
+      final craterPaint = Paint()..color = Colors.grey.shade600;
+      final craterOffsets = [
+        Offset(-6, -4),
+        Offset(4, 6),
+        Offset(8, -5),
+        Offset(-10, 3),
+        Offset(2, -9),
+        Offset(6, 9),
+      ];
+      final craterSizes = [3.0, 2.0, 1.5, 2.5, 1.0, 2.2];
+
+      for (int i = 0; i < craterOffsets.length; i++) {
+        canvas.drawCircle(
+          moonCenter.translate(craterOffsets[i].dx, craterOffsets[i].dy),
+          craterSizes[i],
+          craterPaint,
+        );
+      }
     } else {
-      // Draw sun
-      paint.color = Colors.amber;
-      canvas.drawCircle(center, size.width * 0.3, paint);
+      // Sun: Gradient + 16 rays + glow
+      final gradient = RadialGradient(
+        colors: [Colors.amber, Colors.orange],
+        center: Alignment.center,
+        radius: 0.8,
+      );
 
-      // Rotating rays
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final paint = Paint()..shader = gradient.createShader(rect);
+      canvas.drawCircle(center, radius, paint);
+
+      // Glow effect
+      canvas.drawCircle(
+        center,
+        radius + 4,
+        Paint()
+          ..color = Colors.amberAccent.withOpacity(0.2)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // Rotating rays (16 total)
       final rayPaint =
           Paint()
             ..color = Colors.amberAccent
             ..strokeWidth = 2;
 
-      for (int i = 0; i < 8; i++) {
-        final angle = (i * pi / 4) + (animationValue * 2 * pi); // add rotation
+      for (int i = 0; i < 16; i++) {
+        final angle = (i * pi / 8) + (animationValue * 2 * pi);
         final start = center + Offset.fromDirection(angle, size.width * 0.35);
         final end = center + Offset.fromDirection(angle, size.width * 0.45);
         canvas.drawLine(start, end, rayPaint);

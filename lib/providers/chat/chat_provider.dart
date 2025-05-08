@@ -21,7 +21,7 @@ class ChatProvider {
   ChatProvider(this._chatState)
     : _webSocketService = WebSocketService(
         url:
-            'wss://pu6niet7nl.execute-api.ap-south-1.amazonaws.com/production/',
+            'wss://73vx4trbb3.execute-api.ap-south-1.amazonaws.com/production/BirdInstructor',
       ) {
     // Connect to WebSocket and set up event listener
     _webSocketService.connect();
@@ -97,12 +97,23 @@ class ChatProvider {
       final int end = (start + chunkSizeBytes).clamp(0, base64Audio.length);
       final String chunk = base64Audio.substring(start, end);
 
-      await _webSocketService.sendMessage({
+      final eventOfPunjabiChatBot = {
         "action": "PunjabiChatbot",
         "chunkIndex": i,
         "totalChunks": totalChunks,
         "audio": chunk,
-      });
+      };
+
+      final eventOfBirdAssistant = {
+        "body": {
+          "action": "BirdInstructor",
+          "chunkIndex": i,
+          "totalChunks": totalChunks,
+          "audio": chunk,
+        },
+      };
+
+      await _webSocketService.sendMessage(eventOfBirdAssistant);
       developer.log('Sent chunk ${i + 1}/$totalChunks');
 
       await Future.delayed(Duration(milliseconds: 50));
