@@ -42,7 +42,7 @@ class InputSection extends StatelessWidget {
                     hintText:
                         chatState.isRecording
                             ? 'Recording...'
-                            : 'Type a message',
+                            : 'Type a message...',
                     hintStyle: const TextStyle(color: Colors.black45),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
