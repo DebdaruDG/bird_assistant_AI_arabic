@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder:
             (context, themeProvider, _) => MaterialApp(
-              title: 'FalconSpeak',
+              title: 'Falcon',
               debugShowCheckedModeBanner: false,
               theme: ThemeData.dark().copyWith(
                 primaryColor: Colors.blueAccent,

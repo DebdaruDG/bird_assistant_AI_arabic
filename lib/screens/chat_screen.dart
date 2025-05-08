@@ -1,5 +1,6 @@
 import 'package:bird_instructor/utils/app_color_palette.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 import '../models/chat_model.dart';
@@ -29,15 +30,22 @@ class ChatScreen extends StatelessWidget {
                       ? AppColors.darkBackground
                       : AppColors.lightBackground,
               elevation: 0,
-              title: AppText(
-                'FalconSpeak',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color:
-                      themeState.isDarkMode
-                          ? AppColors.darkText
-                          : AppColors.lightText,
-                ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset('assets/images/falcon_logo.svg', height: 30),
+                  const SizedBox(width: 8),
+                  AppText(
+                    'Falcon',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color:
+                          themeState.isDarkMode
+                              ? AppColors.darkText
+                              : AppColors.lightText,
+                    ),
+                  ),
+                ],
               ),
               centerTitle: true,
               actions: [
