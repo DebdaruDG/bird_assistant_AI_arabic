@@ -29,6 +29,7 @@ class ChatProvider {
       (message) => _handleResponse(message),
       onError: (error) {
         developer.log('WebSocket error: $error');
+        _chatState.updateConnectionStatus(false);
         _chatState.setLoading(false);
         _chatState.setReceivingAudioChunks(false);
       },

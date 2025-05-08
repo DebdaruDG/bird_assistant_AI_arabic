@@ -78,6 +78,34 @@ class ChatScreen extends StatelessWidget {
               builder: (context, chatState, child) {
                 return Column(
                   children: [
+                    if (!chatState.isConnected)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
+                        ),
+                        color: Colors.redAccent.withOpacity(0.8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.wifi_off,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            AppText(
+                              'Disconnected. Reconnecting...',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (chatState.chats.isEmpty)
                       Expanded(
                         child: Column(

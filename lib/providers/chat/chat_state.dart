@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import '../../models/chat_model.dart';
 
 class ChatState with ChangeNotifier {
+  bool _isConnected = false;
   bool _isRecording = false;
   bool _isLoading = false;
   bool _isReceivingAudioChunks = false;
@@ -22,6 +23,7 @@ class ChatState with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isReceivingAudioChunks => _isReceivingAudioChunks;
   bool get isPlaying => _isPlaying;
+  bool get isConnected => _isConnected;
 
   ChatState() {
     _sharedPlayer.onPlayerComplete.listen((event) {
@@ -39,6 +41,11 @@ class ChatState with ChangeNotifier {
   // State setters
   void setRecording(bool value) {
     _isRecording = value;
+    notifyListeners();
+  }
+
+  void updateConnectionStatus(bool status) {
+    _isConnected = status;
     notifyListeners();
   }
 
