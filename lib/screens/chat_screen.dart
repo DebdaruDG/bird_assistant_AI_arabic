@@ -8,6 +8,7 @@ import '../providers/app/theme_provider.dart';
 import '../providers/chat/chat_state.dart';
 import '../utils/app_blurred_bg.dart';
 import '../utils/app_text.dart';
+import '../utils/custom_paints/sun_moon.dart';
 import '../utils/input_field.dart';
 import '../utils/playback_bubble.dart';
 import '../utils/typing_indicator.dart';
@@ -75,27 +76,30 @@ class ChatScreen extends StatelessWidget {
               builder: (context, chatState, child) {
                 return Column(
                   children: [
-                    Expanded(
-                      child: ListView.builder(
-                        reverse: true, // Newest messages at the bottom
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 12,
+                    if (chatState.chats.isEmpty)
+                      Expanded(child: AnimatedSunMoonWidget(key: key))
+                    else
+                      Expanded(
+                        child: ListView.builder(
+                          reverse: true, // Newest messages at the bottom
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
+                          itemCount: chatState.chats.length,
+                          itemBuilder: (context, index) {
+                            final message =
+                                chatState.chats[chatState.chats.length -
+                                    1 -
+                                    index];
+                            return _buildAudioMessage(
+                              context,
+                              message,
+                              chatState,
+                            );
+                          },
                         ),
-                        itemCount: chatState.chats.length,
-                        itemBuilder: (context, index) {
-                          final message =
-                              chatState.chats[chatState.chats.length -
-                                  1 -
-                                  index];
-                          return _buildAudioMessage(
-                            context,
-                            message,
-                            chatState,
-                          );
-                        },
                       ),
-                    ),
                     if (chatState.isLoading || chatState.isReceivingAudioChunks)
                       const Padding(
                         padding: EdgeInsets.all(12.0),
