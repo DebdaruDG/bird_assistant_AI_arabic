@@ -77,7 +77,25 @@ class ChatScreen extends StatelessWidget {
                 return Column(
                   children: [
                     if (chatState.chats.isEmpty)
-                      Expanded(child: AnimatedSunMoonWidget(key: key))
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedSunMoonWidget(key: key),
+                            AppText(
+                              'Say something to begin ...',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 14,
+                                color:
+                                    themeState.isDarkMode
+                                        ? AppColors.lightBackground
+                                        : AppColors.darkBackground,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     else
                       Expanded(
                         child: ListView.builder(
