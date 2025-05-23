@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import '../../models/chat_model.dart';
 
 class ChatState with ChangeNotifier {
-  bool _isConnected = false;
+  bool _isConnected = true;
   bool _isRecording = false;
   bool _isLoading = false;
   bool _isReceivingAudioChunks = false;

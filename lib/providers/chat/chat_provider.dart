@@ -21,7 +21,7 @@ class ChatProvider {
   ChatProvider(this._chatState)
     : _webSocketService = WebSocketService(
         url:
-            'wss://73vx4trbb3.execute-api.ap-south-1.amazonaws.com/production/BirdInstructor',
+            'wss://pu6niet7nl.execute-api.ap-south-1.amazonaws.com/production/',
       ) {
     // Connect to WebSocket and set up event listener
     _webSocketService.connect();
@@ -29,7 +29,7 @@ class ChatProvider {
       (message) => _handleResponse(message),
       onError: (error) {
         developer.log('WebSocket error: $error');
-        _chatState.updateConnectionStatus(false);
+        // _chatState.updateConnectionStatus(false);
         _chatState.setLoading(false);
         _chatState.setReceivingAudioChunks(false);
       },
@@ -106,12 +106,12 @@ class ChatProvider {
       };
 
       final eventOfBirdAssistant = {
-        "body": {
-          "action": "BirdInstructor",
-          "chunkIndex": i,
-          "totalChunks": totalChunks,
-          "audio": chunk,
-        },
+        // "body": {
+        "action": "BirdInstructor",
+        "chunkIndex": i,
+        "totalChunks": totalChunks,
+        "audio": chunk,
+        // },
       };
 
       await _webSocketService.sendMessage(eventOfBirdAssistant);
@@ -122,6 +122,7 @@ class ChatProvider {
   }
 
   void _handleResponse(dynamic message) {
+    developer.log('message - $message');
     try {
       // Handle acknowledgment messages
       if (message is String && message.contains("Sent WebSocket response")) {
