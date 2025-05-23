@@ -15,9 +15,14 @@ import '../utils/input_field.dart';
 import '../utils/playback_bubble.dart';
 import '../utils/typing_indicator.dart';
 
-class ChatScreen extends StatelessWidget {
+class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
@@ -111,7 +116,7 @@ class ChatScreen extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            AnimatedSunMoonWidget(key: key),
+                            AnimatedSunMoonWidget(key: widget.key),
                             AppText(
                               'Say something to begin ...',
                               style: TextStyle(
@@ -136,7 +141,7 @@ class ChatScreen extends StatelessWidget {
                           ),
                           itemCount: chatState.chats.length,
                           itemBuilder: (context, index) {
-                            log('chatState.isLoading - ${chatState.isLoading}');
+                            log('isLoading - ${chatState.isLoading}');
                             final message =
                                 chatState.chats[chatState.chats.length -
                                     1 -
@@ -149,11 +154,6 @@ class ChatScreen extends StatelessWidget {
                             );
                           },
                         ),
-                      ),
-                    if (chatState.isLoading || chatState.isReceivingAudioChunks)
-                      const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: TypingIndicator(),
                       ),
                     Container(
                       padding: const EdgeInsets.all(8.0),
@@ -186,17 +186,29 @@ class ChatScreen extends StatelessWidget {
       return TypingIndicator();
     }
 
-    if (audioBytes == null) {
-      return const SizedBox.shrink();
-    }
-
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: PlaybackBubble(
-        transcript: message.text,
-        key: key,
-        onPlay: () => chatState.togglePlayPause(audioBytes),
-      ),
+      child:
+          (message.audioBytes != null)
+              ? PlaybackBubble(
+                transcript: message.text,
+                key: widget.key,
+                onPlay: () => chatState.togglePlayPause(audioBytes!),
+              )
+              : GlassmorphismCard(
+                blur: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    'Error! audio too short, try again..',
+                    style: TextStyle(
+                      color: AppColors.dangerRed,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
     );
   }
 }

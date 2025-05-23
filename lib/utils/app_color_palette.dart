@@ -17,4 +17,7 @@ class AppColors {
   static const darkUserBubble = Color(0xFF52B788);
   static const darkAssistantBubble = Color(0xFF3A3A3A);
   static const darkText = Color(0xFFECEFF4);
+
+  // Common
+  static const dangerRed = Color(0xFFDC2626);
 }

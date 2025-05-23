@@ -65,18 +65,21 @@ class ChatProvider {
 
   Future<void> sendAudio(Uint8List audioData) async {
     try {
-      _chatState.setLoading(true);
-      _chatState.addChatMessage(
-        ChatMessage(isUser: true, audioBytes: audioData),
-      );
-      _chatState.addChatMessage(ChatMessage(isUser: false, isLoading: true));
+      Future.delayed(Duration.zero, () async {
+        _chatState.setLoading(true);
+        _chatState.addChatMessage(
+          ChatMessage(isUser: true, audioBytes: audioData),
+        );
+        _chatState.addChatMessage(ChatMessage(isUser: false, isLoading: true));
 
-      String base64Audio = base64Encode(audioData);
-      developer.log(
-        'base64Audio size: ${(base64Audio.length / 1024.0).toStringAsFixed(3)} KB',
-      );
+        String base64Audio = base64Encode(audioData);
+        developer.log(
+          'base64Audio size: ${(base64Audio.length / 1024.0).toStringAsFixed(3)} KB',
+        );
 
-      await sendAudioChunks(base64Audio);
+        await sendAudioChunks(base64Audio);
+        // _chatState.setLoading(false);
+      });
       developer.log('All audio chunks sent successfully');
     } catch (err) {
       developer.log('sendAudio error: $err');
@@ -106,12 +109,10 @@ class ChatProvider {
       };
 
       final eventOfBirdAssistant = {
-        // "body": {
         "action": "BirdInstructor",
         "chunkIndex": i,
         "totalChunks": totalChunks,
         "audio": chunk,
-        // },
       };
 
       await _webSocketService.sendMessage(eventOfBirdAssistant);
@@ -132,60 +133,96 @@ class ChatProvider {
 
       // Assume message is already decoded JSON (WebSocketService handles parsing)
       final decoded = message is String ? jsonDecode(message) : message;
-      developer.log('Parsed WebSocket response: $decoded');
+      developer.log(
+        'Parsed WebSocket response: $decoded , type - ${decoded.runtimeType}',
+      );
+      developer.log(
+        'decoded Error: ${decoded['error']} , type - ${decoded['error'].runtimeType}',
+      );
 
-      if (decoded['action'] == "PunjabiChatbot" && decoded['audio'] != null) {
-        int chunkIndex = decoded['chunkIndex'];
-        int totalChunks = decoded['totalChunks'];
-        String base64Chunk = decoded['audio'];
+      if (decoded is Map && decoded.containsKey('error')) {
+        final error = decoded['error'];
+        final errorMessage =
+            error is Map && error.containsKey('message')
+                ? error['message']
+                : 'Unknown error';
 
-        _chunkedAudioMap[chunkIndex] = base64Chunk;
-        _chatState.setReceivingAudioChunks(true);
+        // errorMessage
+        developer.log('errorMessage:- $errorMessage');
 
-        if (_chunkedAudioMap.length == totalChunks) {
-          developer.log('All audio chunks received. Reconstructing...');
-          String combined = '';
-          for (int i = 0; i < totalChunks; i++) {
-            if (_chunkedAudioMap[i] == null) {
-              developer.log('Missing chunk at index $i');
+        _chatState.addChatMessage(
+          ChatMessage(
+            audioBytes: null,
+            isUser: false,
+            text: '$errorMessage',
+            isLoading: _chatState.isLoading,
+          ),
+        );
+        developer.log(
+          'Error message: $errorMessage, type - ${errorMessage.runtimeType}',
+        );
+      } else {
+        if (decoded['action'] == 'BirdInstructor'
+            //For Punjabi Chat Bot logic // "PunjabiChatbot"
+            &&
+            decoded['audio'] != null) {
+          int chunkIndex = decoded['chunkIndex'];
+          int totalChunks = decoded['totalChunks'];
+          String base64Chunk = decoded['audio'];
+
+          _chunkedAudioMap[chunkIndex] = base64Chunk;
+          _chatState.setReceivingAudioChunks(true);
+
+          if (_chunkedAudioMap.length == totalChunks) {
+            developer.log('All audio chunks received. Reconstructing...');
+            String combined = '';
+            for (int i = 0; i < totalChunks; i++) {
+              if (_chunkedAudioMap[i] == null) {
+                developer.log('Missing chunk at index $i');
+                _chatState.setReceivingAudioChunks(false);
+                if (i == totalChunks) {
+                  _chatState.setLoading(false);
+                }
+                return;
+              }
+              combined += _chunkedAudioMap[i]!;
+            }
+
+            try {
+              Uint8List audioBytes = base64Decode(combined);
+              _chatState.removeLoadingMessages();
+              _chatState.addChatMessage(
+                ChatMessage(audioBytes: audioBytes, isUser: false),
+              );
+
+              if (kIsWeb) {
+                final blob = html.Blob([audioBytes]);
+                final url = html.Url.createObjectUrlFromBlob(blob);
+                final audioElement =
+                    html.AudioElement()
+                      ..src = url
+                      ..autoplay = true;
+                html.document.body!.append(audioElement);
+              }
+
+              _chunkedAudioMap.clear();
               _chatState.setReceivingAudioChunks(false);
               _chatState.setLoading(false);
-              return;
+            } catch (e) {
+              developer.log('Error decoding audio: $e');
+              _chatState.removeLoadingMessages();
+              _chatState.addChatMessage(
+                ChatMessage(
+                  text: 'Error decoding audio stream.',
+                  isUser: false,
+                ),
+              );
+              _chatState.setReceivingAudioChunks(false);
+              _chatState.setLoading(false);
             }
-            combined += _chunkedAudioMap[i]!;
           }
-
-          try {
-            Uint8List audioBytes = base64Decode(combined);
-            _chatState.removeLoadingMessages();
-            _chatState.addChatMessage(
-              ChatMessage(audioBytes: audioBytes, isUser: false),
-            );
-
-            if (kIsWeb) {
-              final blob = html.Blob([audioBytes]);
-              final url = html.Url.createObjectUrlFromBlob(blob);
-              final audioElement =
-                  html.AudioElement()
-                    ..src = url
-                    ..autoplay = true;
-              html.document.body!.append(audioElement);
-            }
-
-            _chunkedAudioMap.clear();
-            _chatState.setReceivingAudioChunks(false);
-            _chatState.setLoading(false);
-          } catch (e) {
-            developer.log('Error decoding audio: $e');
-            _chatState.removeLoadingMessages();
-            _chatState.addChatMessage(
-              ChatMessage(text: 'Error decoding audio stream.', isUser: false),
-            );
-            _chatState.setReceivingAudioChunks(false);
-            _chatState.setLoading(false);
-          }
+          return;
         }
-        return;
       }
 
       PunjabiBotResponse? punjabiResponse = PunjabiBotResponse.fromJson(
