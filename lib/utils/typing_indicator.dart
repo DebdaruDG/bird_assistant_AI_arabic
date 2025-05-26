@@ -35,7 +35,13 @@ class _TypingIndicatorState extends State<TypingIndicator>
       opacity: _animation,
       child: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: [Dot(), Dot(delay: 200), Dot(delay: 400)],
+        children: [
+          Dot(),
+          Dot(delay: 200),
+          Dot(delay: 400),
+          SizedBox(width: 15),
+          Text('Typing ...'),
+        ],
       ),
     );
   }
