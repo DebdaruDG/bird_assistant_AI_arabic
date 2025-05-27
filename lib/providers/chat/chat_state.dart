@@ -15,6 +15,8 @@ class ChatState with ChangeNotifier {
   Uint8List? _currentPlayingAudio;
   Duration? _currentPosition;
   final Map<Uint8List, Duration> _pausedPositions = {};
+  int? _sendEndTime;
+  int? _micOpenTime;
 
   // Getters
   List<ChatMessage> get chats => _chats;
@@ -24,6 +26,8 @@ class ChatState with ChangeNotifier {
   bool get isReceivingAudioChunks => _isReceivingAudioChunks;
   bool get isPlaying => _isPlaying;
   bool get isConnected => _isConnected;
+  int getSendEndTime() => _sendEndTime ?? 0;
+  int getMicOpenTime() => _micOpenTime ?? 0;
 
   ChatState() {
     _sharedPlayer.onPlayerComplete.listen((event) {
@@ -68,6 +72,10 @@ class ChatState with ChangeNotifier {
     _chats.removeWhere((m) => m.isLoading);
     notifyListeners();
   }
+
+  void setSendEndTime(int time) => _sendEndTime = time;
+
+  void setMicOpenTime(int time) => _micOpenTime = time;
 
   Future<void> togglePlayPause(Uint8List audioBytes) async {
     if (_currentPlayingAudio != null && _currentPlayingAudio != audioBytes) {

@@ -77,7 +77,27 @@ class ChatProvider {
           'base64Audio size: ${(base64Audio.length / 1024.0).toStringAsFixed(3)} KB',
         );
 
+        // Log: Start sending to WebSocket
+        final sendStartTime = DateTime.now().millisecondsSinceEpoch;
+        developer.log(
+          'Timelog - Start sending to WebSocket at: $sendStartTime ms',
+        );
+
         await sendAudioChunks(base64Audio);
+
+        // Log: End sending to WebSocket
+        final sendEndTime = DateTime.now().millisecondsSinceEpoch;
+        developer.log(
+          'Timelog - Finished sending to WebSocket at: $sendEndTime ms',
+        );
+        final sendDuration = sendEndTime - sendStartTime;
+        developer.log(
+          'Timelog - Time to send to WebSocket: ${sendDuration / 1000} seconds',
+        );
+
+        // Store sendEndTime for response time calculation
+        _chatState.setSendEndTime(sendEndTime);
+        _chatState.setMicOpenTime(sendStartTime);
         // _chatState.setLoading(false);
       });
       developer.log('All audio chunks sent successfully');
@@ -163,7 +183,7 @@ class ChatProvider {
         );
       } else {
         if (decoded['action'] == 'BirdInstructor'
-            //For Punjabi Chat Bot logic // "PunjabiChatbot"
+            // "PunjabiChatbot" // For Punjabi Chat Bot logic
             &&
             decoded['audio'] != null) {
           int chunkIndex = decoded['chunkIndex'];
@@ -175,6 +195,13 @@ class ChatProvider {
 
           if (_chunkedAudioMap.length == totalChunks) {
             developer.log('All audio chunks received. Reconstructing...');
+
+            // Log: Start concatenating audio chunks
+            final concatStartTime = DateTime.now().millisecondsSinceEpoch;
+            developer.log(
+              'Timelog - Start concatenating audio at: $concatStartTime ms',
+            );
+
             String combined = '';
             for (int i = 0; i < totalChunks; i++) {
               if (_chunkedAudioMap[i] == null) {
@@ -190,6 +217,30 @@ class ChatProvider {
 
             try {
               Uint8List audioBytes = base64Decode(combined);
+
+              // Log: End concatenating audio chunks
+              final concatEndTime = DateTime.now().millisecondsSinceEpoch;
+              developer.log(
+                'Timelog - Finished concatenating audio at: $concatEndTime ms',
+              );
+              final concatDuration = concatEndTime - concatStartTime;
+              developer.log(
+                'Timelog - Time to concatenate audio chunks: ${concatDuration / 1000} seconds',
+              );
+
+              // Log: Time to receive response from WebSocket
+              final sendEndTime = _chatState.getSendEndTime();
+              final responseTime = concatEndTime - sendEndTime;
+              developer.log(
+                'Timelog - Time to receive response from WebSocket: ${responseTime / 1000} seconds',
+              );
+
+              // Log: Total time taken
+              final micOpenTime = _chatState.getMicOpenTime();
+              final totalTime = concatEndTime - micOpenTime;
+              developer.log(
+                'Timelog - Total time taken: ${totalTime / 1000} seconds',
+              );
               _chatState.removeLoadingMessages();
               _chatState.addChatMessage(
                 ChatMessage(audioBytes: audioBytes, isUser: false),
@@ -278,6 +329,9 @@ class ChatProvider {
     try {
       if (await _audioRecorder.hasPermission()) {
         _chatState.setRecording(true);
+        // Log: Mic Open
+        final micOpenTime = DateTime.now().millisecondsSinceEpoch;
+        developer.log('Timelog - Mic opened at: $micOpenTime ms');
         if (kIsWeb) {
           await _audioRecorder.start(
             const record.RecordConfig(
@@ -304,6 +358,9 @@ class ChatProvider {
     try {
       if (_chatState.isRecording) {
         _chatState.setRecording(false);
+        // Log: Mic Close
+        final micCloseTime = DateTime.now().millisecondsSinceEpoch;
+        developer.log('Timelog - Mic closed at: $micCloseTime ms');
         final blobUrl = await _audioRecorder.stop();
         if (blobUrl != null && blobUrl.isNotEmpty) {
           final response = await http.get(Uri.parse(blobUrl));
