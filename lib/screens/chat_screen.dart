@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../models/chat_model.dart';
 import '../providers/app/theme_provider.dart';
+import '../providers/chat/chat_provider.dart';
 import '../providers/chat/chat_state.dart';
 import '../utils/app_blurred_bg.dart';
 import '../utils/app_text.dart';
@@ -83,34 +84,34 @@ class _ChatScreenState extends State<ChatScreen> {
               builder: (context, chatState, child) {
                 return Column(
                   children: [
-                    if (!chatState.isConnected)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 16,
-                        ),
-                        color: Colors.redAccent.withOpacity(0.8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.wifi_off,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            AppText(
-                              'Disconnected. Reconnecting...',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    // if (!chatState.isConnected)
+                    //   Container(
+                    //     width: double.infinity,
+                    //     padding: const EdgeInsets.symmetric(
+                    //       vertical: 8,
+                    //       horizontal: 16,
+                    //     ),
+                    //     color: Colors.redAccent.withOpacity(0.8),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.center,
+                    //       children: [
+                    //         const Icon(
+                    //           Icons.wifi_off,
+                    //           color: Colors.white,
+                    //           size: 18,
+                    //         ),
+                    //         const SizedBox(width: 8),
+                    //         AppText(
+                    //           'Disconnected. Reconnecting...',
+                    //           style: const TextStyle(
+                    //             color: Colors.white,
+                    //             fontWeight: FontWeight.bold,
+                    //             fontSize: 14,
+                    //           ),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
                     if (chatState.chats.isEmpty)
                       Expanded(
                         child: Column(
@@ -182,7 +183,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final isUser = message.isUser;
     final audioBytes = message.audioBytes;
 
-    if (chatState.isLoading) {
+    if (chatState.isLoading && !message.isStreaming) {
       return TypingIndicator();
     }
 
@@ -193,7 +194,18 @@ class _ChatScreenState extends State<ChatScreen> {
               ? PlaybackBubble(
                 transcript: message.text,
                 key: widget.key,
-                onPlay: () => chatState.togglePlayPause(audioBytes!),
+                onPlay:
+                    message.isStreaming || message.id == null
+                        ? null // Disable play button during streaming or if no ID
+                        : () => chatState.togglePlayPause(
+                          audioBytes!,
+                          message.id!,
+                          (bytes) => Provider.of<ChatProvider>(
+                            context,
+                            listen: false,
+                          ).playAudio(bytes),
+                        ),
+                isStreaming: message.isStreaming,
               )
               : GlassmorphismCard(
                 blur: 12,

@@ -130,8 +130,8 @@ class ChatProvider {
 
       final eventOfBirdAssistant = {
         "action": "BirdInstructor",
-        "chunkIndex": i,
-        "totalChunks": totalChunks,
+        // "chunkIndex": i,
+        // "totalChunks": totalChunks,
         "audio": chunk,
       };
 

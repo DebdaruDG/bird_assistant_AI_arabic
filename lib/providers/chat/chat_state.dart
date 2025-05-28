@@ -1,55 +1,46 @@
-import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/material.dart';
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import '../../models/chat_model.dart';
 
-class ChatState with ChangeNotifier {
-  bool _isConnected = true;
-  bool _isRecording = false;
-  bool _isLoading = false;
-  bool _isReceivingAudioChunks = false;
-  bool _isPlaying = false;
-  final AudioPlayer _sharedPlayer = AudioPlayer();
+class ChatState extends ChangeNotifier {
   final List<ChatMessage> _chats = [];
-  Uint8List? _currentPlayingAudio;
-  Duration? _currentPosition;
-  final Map<Uint8List, Duration> _pausedPositions = {};
-  int? _sendEndTime;
-  int? _micOpenTime;
+  bool _isLoading = false;
+  bool _isRecording = false;
+  bool _isReceivingAudioChunks = false;
+  int _sendEndTime = 0;
+  int _micOpenTime = 0;
+  bool _isPlaying = false; // Track playback state
+  String? _currentPlayingMessageId; // Track currently playing message
 
-  // Getters
   List<ChatMessage> get chats => _chats;
-  AudioPlayer get sharedPlayer => _sharedPlayer;
-  bool get isRecording => _isRecording;
   bool get isLoading => _isLoading;
+  bool get isRecording => _isRecording;
   bool get isReceivingAudioChunks => _isReceivingAudioChunks;
+  int getSendEndTime() => _sendEndTime;
+  int getMicOpenTime() => _micOpenTime;
   bool get isPlaying => _isPlaying;
-  bool get isConnected => _isConnected;
-  int getSendEndTime() => _sendEndTime ?? 0;
-  int getMicOpenTime() => _micOpenTime ?? 0;
 
-  ChatState() {
-    _sharedPlayer.onPlayerComplete.listen((event) {
-      _isPlaying = false;
-      _currentPlayingAudio = null;
-      notifyListeners();
-    });
-
-    _sharedPlayer.onPositionChanged.listen((pos) {
-      _currentPosition = pos;
-      notifyListeners();
-    });
-  }
-
-  // State setters
-  void setRecording(bool value) {
-    _isRecording = value;
+  void addChatMessage(ChatMessage message) {
+    _chats.add(message);
     notifyListeners();
   }
 
-  void updateConnectionStatus(bool status) {
-    _isConnected = status;
+  void updateChatMessage(String id, ChatMessage updatedMessage) {
+    final index = _chats.indexWhere((msg) => msg.id == id);
+    if (index != -1) {
+      _chats[index] = updatedMessage;
+      notifyListeners();
+    }
+  }
+
+  void updateLastChatMessage(ChatMessage updatedMessage) {
+    if (_chats.isNotEmpty) {
+      _chats[_chats.length - 1] = updatedMessage;
+      notifyListeners();
+    }
+  }
+
+  void removeLoadingMessages() {
+    _chats.removeWhere((message) => message.isLoading);
     notifyListeners();
   }
 
@@ -58,58 +49,44 @@ class ChatState with ChangeNotifier {
     notifyListeners();
   }
 
+  void setRecording(bool value) {
+    _isRecording = value;
+    notifyListeners();
+  }
+
   void setReceivingAudioChunks(bool value) {
     _isReceivingAudioChunks = value;
     notifyListeners();
   }
 
-  void addChatMessage(ChatMessage message) {
-    _chats.add(message);
-    notifyListeners();
+  void setSendEndTime(int time) {
+    _sendEndTime = time;
   }
 
-  void removeLoadingMessages() {
-    _chats.removeWhere((m) => m.isLoading);
-    notifyListeners();
+  void setMicOpenTime(int time) {
+    _micOpenTime = time;
   }
 
-  void setSendEndTime(int time) => _sendEndTime = time;
-
-  void setMicOpenTime(int time) => _micOpenTime = time;
-
-  Future<void> togglePlayPause(Uint8List audioBytes) async {
-    if (_currentPlayingAudio != null && _currentPlayingAudio != audioBytes) {
-      await _sharedPlayer.stop();
-      _pausedPositions[_currentPlayingAudio!] =
-          _currentPosition ?? Duration.zero;
-    }
-
-    if (_isPlaying && _currentPlayingAudio == audioBytes) {
-      await _sharedPlayer.pause();
-      _pausedPositions[audioBytes] = _currentPosition ?? Duration.zero;
+  void togglePlayPause(
+    Uint8List audioBytes,
+    String messageId,
+    Function(Uint8List) playAudio,
+  ) {
+    if (_currentPlayingMessageId == messageId && _isPlaying) {
       _isPlaying = false;
+      _currentPlayingMessageId = null;
+      notifyListeners();
     } else {
-      if (_currentPlayingAudio != audioBytes) {
-        await _sharedPlayer.setSource(BytesSource(audioBytes));
-        await _sharedPlayer.resume();
-        _currentPlayingAudio = audioBytes;
-        _isPlaying = true;
-      } else {
-        await _sharedPlayer.resume();
-        _isPlaying = true;
-      }
-
-      final resumePosition = _pausedPositions[audioBytes];
-      if (resumePosition != null) {
-        await _sharedPlayer.seek(resumePosition);
-      }
+      _isPlaying = true;
+      _currentPlayingMessageId = messageId;
+      playAudio(audioBytes);
+      notifyListeners();
     }
-    notifyListeners();
   }
 
-  @override
-  void dispose() {
-    _sharedPlayer.dispose();
-    super.dispose();
+  void stopPlayback() {
+    _isPlaying = false;
+    _currentPlayingMessageId = null;
+    notifyListeners();
   }
 }
