@@ -12,6 +12,7 @@ import '../providers/chat/chat_state.dart';
 import '../utils/app_blurred_bg.dart';
 import '../utils/app_text.dart';
 import '../utils/custom_paints/sun_moon.dart';
+import '../utils/dancing_dots.dart';
 import '../utils/input_field.dart';
 import '../utils/playback_bubble.dart';
 import '../utils/typing_indicator.dart';
@@ -183,7 +184,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final audioBytes = message.audioBytes;
 
     if (chatState.isLoading && !message.isStreaming) {
-      return TypingIndicator();
+      return DancingDots();
+      // TypingIndicator();
     }
 
     log('message.audioBytes :- ${message.audioBytes}');

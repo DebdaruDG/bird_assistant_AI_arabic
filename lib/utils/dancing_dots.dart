@@ -64,7 +64,7 @@ class _DancingDotsState extends State<DancingDots>
                   '.',
                   style: TextStyle(
                     fontSize: 24,
-                    color: Colors.black,
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
