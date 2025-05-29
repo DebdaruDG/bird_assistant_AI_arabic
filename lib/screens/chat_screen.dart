@@ -241,7 +241,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       (bytes) => Provider.of<ChatProvider>(
                         context,
                         listen: false,
-                      ).playAudio(bytes),
+                      ).playAudio(audioBytes),
                     ),
               )
               : GlassmorphismCard(
