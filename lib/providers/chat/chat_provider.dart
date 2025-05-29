@@ -143,153 +143,69 @@ class ChatProvider {
 
   void _handleResponse(dynamic message) {
     developer.log('message - $message');
-    try {
-      if (message is String && message.contains("Sent WebSocket response")) {
-        developer.log('Received acknowledgment: $message');
-        return;
-      }
-
-      final decoded = message is String ? jsonDecode(message) : message;
-      developer.log(
-        'Parsed WebSocket response: $decoded , type - ${decoded.runtimeType}',
-      );
-
-      if (decoded is Map && decoded.containsKey('error')) {
-        final error = decoded['error'];
-        final errorMessage =
-            error is Map && error.containsKey('message')
-                ? error['message']
-                : 'Unknown error';
-        developer.log('errorMessage: $errorMessage');
-        _chatState.addChatMessage(
-          ChatMessage(
-            audioBytes: null,
-            isUser: false,
-            text: errorMessage,
-            isLoading: _chatState.isLoading,
-          ),
-        );
-        _chatState.setReceivingAudioChunks(false);
-        _chatState.setLoading(false);
-        _stopPlayback();
-        return;
-      } else if (decoded['action'] == 'BirdInstructorAudio') {
-        // if (!kIsWeb) {
-        //   developer.log('Streaming audio is only supported on web');
-        //   return;
-        // }
-
-        int chunkIndex = decoded['chunkIndex'];
-        String base64Chunk = decoded['audio'];
-        bool isFinal = decoded['isFinal'] ?? false;
-
-        developer.log('base64Chunk - $base64Chunk');
-
-        // New Logic :-
-        combined += base64Chunk;
-        developer.log('combined - $combined');
-
-        // Earlier Logic :-
-
-        // _chunkedAudioMap[chunkIndex] = base64Chunk;
-        _chatState.setReceivingAudioChunks(true);
-
-        developer.log('Received chunk $chunkIndex, isFinal: $isFinal');
-
-        final bytes = base64Decode(combined);
-        _chatState.addChatMessage(
-          ChatMessage(audioBytes: Uint8List.fromList(bytes), isUser: false),
-        );
-
-        _chatState.setReceivingAudioChunks(false);
-        _chatState.setLoading(false);
-      }
-    } catch (exc) {
-      developer.log('catch exception - $exc');
+    if (message is String && message.contains("Sent WebSocket response")) {
+      developer.log('Received acknowledgment: $message');
+      return;
     }
 
-    // try {
-    //   final audioBytes = base64Decode(base64Chunk);
-    //   developer.log('Chunk $chunkIndex size: ${audioBytes.length} bytes');
-    //   if (audioBytes.length >= 4) {
-    //     developer.log(
-    //       'Chunk $chunkIndex header: ${audioBytes.sublist(0, 4)}',
-    //     );
-    //   }
+    final decoded = message is String ? jsonDecode(message) : message;
+    developer.log(
+      'Parsed WebSocket response: $decoded , type - ${decoded.runtimeType}',
+    );
 
-    //   if (_currentAudioMessageId == null) {
-    //     _currentAudioMessageId =
-    //         DateTime.now().millisecondsSinceEpoch.toString();
-    //     _chatState.addChatMessage(
-    //       ChatMessage(
-    //         audioBytes: audioBytes,
-    //         isUser: false,
-    //         isStreaming: true,
-    //         id: _currentAudioMessageId,
-    //       ),
-    //     );
-    //   }
+    if (decoded is Map && decoded.containsKey('error')) {
+      final error = decoded['error'];
+      final errorMessage =
+          error is Map && error.containsKey('message')
+              ? error['message']
+              : 'Unknown error';
+      developer.log('errorMessage: $errorMessage');
+      _chatState.addChatMessage(
+        ChatMessage(
+          audioBytes: null,
+          isUser: false,
+          text: errorMessage,
+          isLoading: _chatState.isLoading,
+        ),
+      );
+      _chatState.setReceivingAudioChunks(false);
+      _chatState.setLoading(false);
+      _stopPlayback();
+      return;
+    } else if (decoded['action'] == 'BirdInstructorAudio') {
+      developer.log('decoded.runtimeType - ${decoded.runtimeType}');
+      int chunkIndex = decoded['chunkIndex'];
+      String base64Chunk = decoded['audio'];
+      bool isFinal = decoded['isFinal'] ?? false;
 
-    //   if (_chunkedAudioMap.isNotEmpty || isFinal) {
-    //     _playBufferedAudio(isFinal);
-    //   }
+      developer.log('base64Chunk - $base64Chunk');
 
-    //   if (isFinal) {
-    //     developer.log('Final chunk received');
-    //     _chatState.setReceivingAudioChunks(false);
-    //     _chatState.setLoading(false);
-    //   }
-    // } catch (e) {
-    //   developer.log('Error processing audio chunk $chunkIndex: $e');
-    //   _chatState.addChatMessage(
-    //     ChatMessage(text: 'Error processing audio stream.', isUser: false),
-    //   );
-    //   _chatState.setReceivingAudioChunks(false);
-    //   _chatState.setLoading(false);
-    //   _stopPlayback();
-    // }
+      // New Logic :-
+      combined += base64Chunk;
+      developer.log('combined - $combined');
 
-    //   PunjabiBotResponse? punjabiResponse = PunjabiBotResponse.fromJson(
-    //     decoded,
-    //   );
-    //   _chatState.removeLoadingMessages();
+      // Earlier Logic :-
 
-    //   if ((punjabiResponse.audioChunks ?? []).isNotEmpty) {
-    //     for (AudioChunks item in (punjabiResponse.audioChunks ?? [])) {
-    //       final bytes = base64Decode(item.data ?? '');
-    //       _chatState.addChatMessage(
-    //         ChatMessage(audioBytes: Uint8List.fromList(bytes), isUser: false),
-    //       );
-    //     }
-    //   }
+      _chatState.setReceivingAudioChunks(true);
 
-    //   if (decoded['response'] != null) {
-    //     _chatState.addChatMessage(
-    //       ChatMessage(text: decoded['response'], isUser: false),
-    //     );
-    //   }
+      developer.log('Received chunk $chunkIndex, isFinal: $isFinal');
 
-    //   if (decoded['audio'] != null) {
-    //     try {
-    //       final bytes = base64Decode(decoded['audio']);
-    //       _chatState.addChatMessage(
-    //         ChatMessage(audioBytes: Uint8List.fromList(bytes), isUser: false),
-    //       );
-    //     } catch (e) {
-    //       developer.log('Error decoding single audio: $e');
-    //       _chatState.addChatMessage(
-    //         ChatMessage(text: 'Error: Failed to decode audio', isUser: false),
-    //       );
-    //     }
-    //   }
+      final bytes = base64Decode(combined);
+      developer.log('bytes - $bytes');
+      developer.log('bytes.elementSizeInBytes - ${bytes.elementSizeInBytes}');
+      _chatState.addChatMessage(
+        ChatMessage(audioBytes: Uint8List.fromList(bytes), isUser: false),
+      );
 
-    //   _chatState.setLoading(false);
-    //   _chatState.setReceivingAudioChunks(false);
-    // } catch (e) {
-    //   developer.log('Error processing WebSocket response: $e');
-    //   _chatState.setLoading(false);
-    //   _chatState.setReceivingAudioChunks(false);
-    //   _stopPlayback();
+      _chatState.setReceivingAudioChunks(false);
+      _chatState.setLoading(false);
+    }
+  }
+
+  void addAudioToChatMessageModel(Uint8List bytes) {
+    _chatState.addChatMessage(
+      ChatMessage(audioBytes: Uint8List.fromList(bytes), isUser: false),
+    );
   }
 
   void _playBufferedAudio(bool isFinal) {

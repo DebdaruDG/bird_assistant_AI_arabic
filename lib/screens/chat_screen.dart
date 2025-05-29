@@ -187,7 +187,9 @@ class _ChatScreenState extends State<ChatScreen> {
       return TypingIndicator();
     }
 
-    return Align(
+    log('message.audioBytes :- ${message.audioBytes}');
+
+    Widget streamingLogicWidget = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child:
           (message.audioBytes != null)
@@ -222,5 +224,40 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
     );
+
+    Widget earlierWidget = Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child:
+          (message.audioBytes != null)
+              ? PlaybackBubble(
+                transcript: message.text,
+                key: widget.key,
+                onPlay:
+                    () => chatState.togglePlayPause(
+                      audioBytes!,
+                      message.id ?? '',
+                      (bytes) => Provider.of<ChatProvider>(
+                        context,
+                        listen: false,
+                      ).playAudio(bytes),
+                    ),
+              )
+              : GlassmorphismCard(
+                blur: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    'Error! audio too short, try again..',
+                    style: TextStyle(
+                      color: AppColors.dangerRed,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+    );
+
+    return earlierWidget;
   }
 }
