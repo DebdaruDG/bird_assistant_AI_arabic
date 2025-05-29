@@ -142,7 +142,6 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           itemCount: chatState.chats.length,
                           itemBuilder: (context, index) {
-                            log('isLoading - ${chatState.isLoading}');
                             final message =
                                 chatState.chats[chatState.chats.length -
                                     1 -

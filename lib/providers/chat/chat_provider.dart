@@ -19,7 +19,7 @@ class ChatProvider {
   final Map<int, String> _chunkedAudioMap = {};
   html.AudioElement? _audioElement;
   String? _currentAudioMessageId;
-  String combined = '';
+  List<int> _combinedAudioBytes = [];
 
   ChatProvider(this._chatState)
     : _webSocketService = WebSocketService(
@@ -173,32 +173,39 @@ class ChatProvider {
       _stopPlayback();
       return;
     } else if (decoded['action'] == 'BirdInstructorAudio') {
-      developer.log('decoded.runtimeType - ${decoded.runtimeType}');
       int chunkIndex = decoded['chunkIndex'];
       String base64Chunk = decoded['audio'];
       bool isFinal = decoded['isFinal'] ?? false;
 
-      developer.log('base64Chunk - $base64Chunk');
+      if (base64Chunk.trim().isNotEmpty) {
+        try {
+          final chunkBytes = base64Decode(base64Chunk); // decode each chunk
+          _combinedAudioBytes.addAll(chunkBytes); // append raw bytes
+        } catch (e) {
+          developer.log('❌ Base64 decode failed on chunk $chunkIndex: $e');
+        }
+      }
 
-      // New Logic :-
-      combined += base64Chunk;
-      developer.log('combined - $combined');
+      if (isFinal) {
+        developer.log(
+          '✅ All chunks received. Bytes count: ${_combinedAudioBytes.length}',
+        );
 
-      // Earlier Logic :-
+        if (_combinedAudioBytes.isNotEmpty) {
+          _chatState.addChatMessage(
+            ChatMessage(
+              audioBytes: Uint8List.fromList(_combinedAudioBytes),
+              isUser: false,
+            ),
+          );
+        }
 
-      _chatState.setReceivingAudioChunks(true);
-
-      developer.log('Received chunk $chunkIndex, isFinal: $isFinal');
-
-      final bytes = base64Decode(combined);
-      developer.log('bytes - $bytes');
-      developer.log('bytes.elementSizeInBytes - ${bytes.elementSizeInBytes}');
-      _chatState.addChatMessage(
-        ChatMessage(audioBytes: Uint8List.fromList(bytes), isUser: false),
-      );
-
-      _chatState.setReceivingAudioChunks(false);
-      _chatState.setLoading(false);
+        _combinedAudioBytes = []; // reset for next audio
+        _chatState.setReceivingAudioChunks(false);
+        _chatState.setLoading(false);
+      } else {
+        _chatState.setReceivingAudioChunks(true);
+      }
     }
   }
 
