@@ -21,10 +21,12 @@ class ChatProvider {
   String? _currentAudioMessageId;
   List<int> _combinedAudioBytes = [];
   int? _firstChunkReceivedTime;
-  int? _chunkSendStartTime; // New: Store send start time
+  int? _chunkSendStartTime;
   html.MediaSource? _mediaSource;
   html.SourceBuffer? _sourceBuffer;
   bool _isMediaSourceOpen = false;
+  final List<Uint8List> _audioChunkQueue = []; // New: Queue for audio chunks
+  bool _isProcessingQueue = false; // New: Track queue processing
 
   ChatProvider(this._chatState)
     : _webSocketService = WebSocketService(
@@ -120,8 +122,7 @@ class ChatProvider {
     final int totalChunks = (base64Audio.length / chunkSizeBytes).ceil();
     developer.log('Splitting into $totalChunks chunk(s)');
 
-    _chunkSendStartTime =
-        DateTime.now().millisecondsSinceEpoch; // Store send start time
+    _chunkSendStartTime = DateTime.now().millisecondsSinceEpoch;
     developer.log(
       'Timelog - Chunk sending started at: $_chunkSendStartTime ms',
     );
@@ -237,8 +238,9 @@ class ChatProvider {
             );
           }
 
-          // Append chunk to SourceBuffer
-          _playAudioChunk(chunkBytes);
+          // Queue chunk for playback
+          _audioChunkQueue.add(chunkBytes);
+          _processAudioQueue();
         } catch (e) {
           developer.log('❌ Base64 decode failed on chunk $chunkIndex: $e');
         }
@@ -274,6 +276,7 @@ class ChatProvider {
         _currentAudioMessageId = null;
         _firstChunkReceivedTime = null; // Reset time log
         _chunkSendStartTime = null; // Reset send time
+        _audioChunkQueue.clear(); // Clear queue
         _chatState.setReceivingAudioChunks(false);
         _chatState.setLoading(false);
       }
@@ -295,6 +298,7 @@ class ChatProvider {
         _sourceBuffer = _mediaSource!.addSourceBuffer('audio/wav');
         _isMediaSourceOpen = true;
         developer.log('MediaSource opened and SourceBuffer initialized');
+        _processAudioQueue(); // Start processing queue when source opens
       });
 
       _audioElement!.onError.listen((_) {
@@ -318,6 +322,19 @@ class ChatProvider {
     }
   }
 
+  void _processAudioQueue() {
+    if (!kIsWeb ||
+        _audioChunkQueue.isEmpty ||
+        _isProcessingQueue ||
+        !_isMediaSourceOpen ||
+        _sourceBuffer == null) {
+      return;
+    }
+
+    _isProcessingQueue = true;
+    _playAudioChunk(_audioChunkQueue.first);
+  }
+
   void _playAudioChunk(Uint8List chunkBytes) {
     if (!kIsWeb) return;
 
@@ -326,10 +343,10 @@ class ChatProvider {
           _sourceBuffer == null ||
           !_isMediaSourceOpen) {
         developer.log('MediaSource or SourceBuffer not initialized');
+        _isProcessingQueue = false;
         return;
       }
 
-      // Wait for SourceBuffer to be ready if updating
       if (_sourceBuffer!.updating!) {
         _sourceBuffer!.addEventListener('updateend', (event) {
           _appendChunkToSourceBuffer(chunkBytes);
@@ -342,6 +359,7 @@ class ChatProvider {
       _chatState.addChatMessage(
         ChatMessage(text: 'Error playing audio stream.', isUser: false),
       );
+      _isProcessingQueue = false;
     }
   }
 
@@ -355,6 +373,7 @@ class ChatProvider {
           'Timelog - Playback started at: $playbackStartTime ms, '
           'Duration from first chunk to playback: ${duration / 1000} seconds',
         );
+        _firstChunkReceivedTime = null; // Reset after logging first chunk
       }
 
       _sourceBuffer!.appendBuffer(chunkBytes.buffer);
@@ -362,20 +381,20 @@ class ChatProvider {
         'Appended chunk to SourceBuffer, size: ${chunkBytes.length} bytes',
       );
 
-      // Start playback if not already playing
-      if (_audioElement!.paused) {
-        _audioElement!.play().catchError((e) {
-          developer.log('Error playing audio chunk: $e');
-          _chatState.addChatMessage(
-            ChatMessage(text: 'Error playing audio chunk.', isUser: false),
-          );
-        });
-      }
+      // Remove processed chunk and continue queue
+      _audioChunkQueue.removeAt(0);
+      _isProcessingQueue = false;
+
+      // Set up listener for next chunk
+      _sourceBuffer!.addEventListener('updateend', (event) {
+        _processAudioQueue();
+      }, true);
     } catch (e) {
       developer.log('Error appending chunk to SourceBuffer: $e');
       _chatState.addChatMessage(
         ChatMessage(text: 'Error playing audio stream.', isUser: false),
       );
+      _isProcessingQueue = false;
     }
   }
 
@@ -480,6 +499,8 @@ class ChatProvider {
       _sourceBuffer = null;
       _isMediaSourceOpen = false;
     }
+    _audioChunkQueue.clear(); // Clear queue on stop
+    _isProcessingQueue = false;
     _chatState.stopPlayback();
   }
 
