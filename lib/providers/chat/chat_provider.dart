@@ -20,6 +20,11 @@ class ChatProvider {
   html.AudioElement? _audioElement;
   String? _currentAudioMessageId;
   List<int> _combinedAudioBytes = [];
+  int? _firstChunkReceivedTime;
+  int? _chunkSendStartTime; // New: Store send start time
+  html.MediaSource? _mediaSource;
+  html.SourceBuffer? _sourceBuffer;
+  bool _isMediaSourceOpen = false;
 
   ChatProvider(this._chatState)
     : _webSocketService = WebSocketService(
@@ -115,6 +120,12 @@ class ChatProvider {
     final int totalChunks = (base64Audio.length / chunkSizeBytes).ceil();
     developer.log('Splitting into $totalChunks chunk(s)');
 
+    _chunkSendStartTime =
+        DateTime.now().millisecondsSinceEpoch; // Store send start time
+    developer.log(
+      'Timelog - Chunk sending started at: $_chunkSendStartTime ms',
+    );
+
     for (int i = 0; i < totalChunks; i++) {
       final int start = i * chunkSizeBytes;
       final int end = (start + chunkSizeBytes).clamp(0, base64Audio.length);
@@ -179,8 +190,55 @@ class ChatProvider {
 
       if (base64Chunk.trim().isNotEmpty) {
         try {
-          final chunkBytes = base64Decode(base64Chunk); // decode each chunk
-          _combinedAudioBytes.addAll(chunkBytes); // append raw bytes
+          final chunkBytes = base64Decode(base64Chunk); // Decode chunk
+          _combinedAudioBytes.addAll(
+            chunkBytes,
+          ); // Accumulate for final message
+
+          // Log time for first chunk
+          if (_currentAudioMessageId == null) {
+            _firstChunkReceivedTime = DateTime.now().millisecondsSinceEpoch;
+            developer.log(
+              'Timelog - First chunk received at: $_firstChunkReceivedTime ms',
+            );
+
+            // Log duration from send to first chunk receipt
+            if (_chunkSendStartTime != null) {
+              final duration = _firstChunkReceivedTime! - _chunkSendStartTime!;
+              developer.log(
+                'Timelog - Duration from chunk send to first chunk received: ${duration / 1000} seconds',
+              );
+              _chunkSendStartTime = null; // Reset after logging
+            }
+
+            // Initialize MediaSource and message ID
+            _currentAudioMessageId =
+                DateTime.now().millisecondsSinceEpoch.toString();
+            _initializeMediaSource();
+            _chatState.addChatMessage(
+              ChatMessage(
+                audioBytes: Uint8List.fromList(_combinedAudioBytes),
+                isUser: false,
+                isStreaming: true,
+                id: _currentAudioMessageId,
+              ),
+            );
+            _chatState.setReceivingAudioChunks(true);
+          } else {
+            // Update existing streaming message
+            _chatState.updateChatMessage(
+              _currentAudioMessageId!,
+              ChatMessage(
+                audioBytes: Uint8List.fromList(_combinedAudioBytes),
+                isUser: false,
+                isStreaming: !isFinal,
+                id: _currentAudioMessageId,
+              ),
+            );
+          }
+
+          // Append chunk to SourceBuffer
+          _playAudioChunk(chunkBytes);
         } catch (e) {
           developer.log('❌ Base64 decode failed on chunk $chunkIndex: $e');
         }
@@ -191,21 +249,133 @@ class ChatProvider {
           '✅ All chunks received. Bytes count: ${_combinedAudioBytes.length}',
         );
 
-        if (_combinedAudioBytes.isNotEmpty) {
-          _chatState.addChatMessage(
+        if (_combinedAudioBytes.isNotEmpty && _currentAudioMessageId != null) {
+          // Finalize the message
+          _chatState.updateChatMessage(
+            _currentAudioMessageId!,
             ChatMessage(
               audioBytes: Uint8List.fromList(_combinedAudioBytes),
               isUser: false,
+              isStreaming: false,
+              id: _currentAudioMessageId,
             ),
           );
         }
 
-        _combinedAudioBytes = []; // reset for next audio
+        // End the MediaSource stream
+        if (_isMediaSourceOpen &&
+            _sourceBuffer != null &&
+            !_sourceBuffer!.updating!) {
+          _mediaSource?.endOfStream();
+          _isMediaSourceOpen = false;
+        }
+
+        _combinedAudioBytes = []; // Reset for next audio
+        _currentAudioMessageId = null;
+        _firstChunkReceivedTime = null; // Reset time log
+        _chunkSendStartTime = null; // Reset send time
         _chatState.setReceivingAudioChunks(false);
         _chatState.setLoading(false);
-      } else {
-        _chatState.setReceivingAudioChunks(true);
       }
+    }
+  }
+
+  void _initializeMediaSource() {
+    if (!kIsWeb) return;
+
+    try {
+      _mediaSource = html.MediaSource();
+      _isMediaSourceOpen = false;
+      _audioElement = html.AudioElement();
+      _audioElement!.src = html.Url.createObjectUrl(_mediaSource!);
+      _audioElement!.autoplay = true;
+      html.document.body!.append(_audioElement!);
+
+      _mediaSource!.addEventListener('sourceopen', (event) {
+        _sourceBuffer = _mediaSource!.addSourceBuffer('audio/wav');
+        _isMediaSourceOpen = true;
+        developer.log('MediaSource opened and SourceBuffer initialized');
+      });
+
+      _audioElement!.onError.listen((_) {
+        developer.log('Error playing MediaSource audio');
+        _chatState.addChatMessage(
+          ChatMessage(text: 'Error playing audio stream.', isUser: false),
+        );
+        _stopPlayback();
+      });
+
+      _audioElement!.onEnded.listen((_) {
+        _chatState.stopPlayback();
+        _stopPlayback();
+      });
+    } catch (e) {
+      developer.log('Error initializing MediaSource: $e');
+      _chatState.addChatMessage(
+        ChatMessage(text: 'Error initializing audio stream.', isUser: false),
+      );
+      _stopPlayback();
+    }
+  }
+
+  void _playAudioChunk(Uint8List chunkBytes) {
+    if (!kIsWeb) return;
+
+    try {
+      if (_mediaSource == null ||
+          _sourceBuffer == null ||
+          !_isMediaSourceOpen) {
+        developer.log('MediaSource or SourceBuffer not initialized');
+        return;
+      }
+
+      // Wait for SourceBuffer to be ready if updating
+      if (_sourceBuffer!.updating!) {
+        _sourceBuffer!.addEventListener('updateend', (event) {
+          _appendChunkToSourceBuffer(chunkBytes);
+        }, true);
+      } else {
+        _appendChunkToSourceBuffer(chunkBytes);
+      }
+    } catch (e) {
+      developer.log('Error in _playAudioChunk: $e');
+      _chatState.addChatMessage(
+        ChatMessage(text: 'Error playing audio stream.', isUser: false),
+      );
+    }
+  }
+
+  void _appendChunkToSourceBuffer(Uint8List chunkBytes) {
+    try {
+      // Log playback start time for first chunk
+      if (_firstChunkReceivedTime != null) {
+        final playbackStartTime = DateTime.now().millisecondsSinceEpoch;
+        final duration = playbackStartTime - _firstChunkReceivedTime!;
+        developer.log(
+          'Timelog - Playback started at: $playbackStartTime ms, '
+          'Duration from first chunk to playback: ${duration / 1000} seconds',
+        );
+      }
+
+      _sourceBuffer!.appendBuffer(chunkBytes.buffer);
+      developer.log(
+        'Appended chunk to SourceBuffer, size: ${chunkBytes.length} bytes',
+      );
+
+      // Start playback if not already playing
+      if (_audioElement!.paused) {
+        _audioElement!.play().catchError((e) {
+          developer.log('Error playing audio chunk: $e');
+          _chatState.addChatMessage(
+            ChatMessage(text: 'Error playing audio chunk.', isUser: false),
+          );
+        });
+      }
+    } catch (e) {
+      developer.log('Error appending chunk to SourceBuffer: $e');
+      _chatState.addChatMessage(
+        ChatMessage(text: 'Error playing audio stream.', isUser: false),
+      );
     }
   }
 
@@ -300,6 +470,16 @@ class ChatProvider {
       _audioElement!.remove();
       _audioElement = null;
     }
+    if (_mediaSource != null) {
+      if (_isMediaSourceOpen &&
+          _sourceBuffer != null &&
+          !_sourceBuffer!.updating!) {
+        _mediaSource?.endOfStream();
+      }
+      _mediaSource = null;
+      _sourceBuffer = null;
+      _isMediaSourceOpen = false;
+    }
     _chatState.stopPlayback();
   }
 
@@ -368,5 +548,6 @@ class ChatProvider {
     _stopPlayback();
     _chunkedAudioMap.clear();
     _currentAudioMessageId = null;
+    _chunkSendStartTime = null;
   }
 }
