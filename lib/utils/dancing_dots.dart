@@ -55,22 +55,32 @@ class _DancingDotsState extends State<DancingDots>
       builder: (context, child) {
         return Row(
           mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
-            return Transform.translate(
-              offset: Offset(0, _animations[index].value),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Text(
-                  '.',
-                  style: TextStyle(
-                    fontSize: 24,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+          children: [
+            ...List.generate(3, (index) {
+              return Transform.translate(
+                offset: Offset(0, _animations[index].value),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 2),
+                  child: Text(
+                    '.',
+                    style: TextStyle(
+                      fontSize: 24,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
+              );
+            }),
+            Text(
+              'Typing ',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
               ),
-            );
-          }),
+            ),
+          ],
         );
       },
     );

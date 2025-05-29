@@ -152,6 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               context,
                               message,
                               chatState,
+                              index == (chatState.chats.length - 1),
                             );
                           },
                         ),
@@ -179,13 +180,13 @@ class _ChatScreenState extends State<ChatScreen> {
     BuildContext context,
     ChatMessage message,
     ChatState chatState,
+    bool isLastIndex,
   ) {
     final isUser = message.isUser;
     final audioBytes = message.audioBytes;
 
-    if (chatState.isLoading && !message.isStreaming) {
+    if (chatState.isLoading && isLastIndex && !message.isStreaming) {
       return DancingDots();
-      // TypingIndicator();
     }
 
     log('message.audioBytes :- ${message.audioBytes}');
