@@ -11,6 +11,8 @@ class _DancingDotsState extends State<DancingDots>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late List<Animation<double>> _animations;
+  late Animation<double> _rocketTranslation;
+  late Animation<double> _rocketVibration;
 
   @override
   void initState() {
@@ -40,6 +42,34 @@ class _DancingDotsState extends State<DancingDots>
         ),
       ),
     ];
+
+    // Rocket takeoff animation (vertical movement)
+    _rocketTranslation = Tween<double>(begin: 0, end: -30).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
+    // Rocket vibration animation (slight rotation)
+    _rocketVibration = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween<double>(begin: 0, end: 0.05), weight: 10),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.05, end: -0.05),
+        weight: 10,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: -0.05, end: 0.05),
+        weight: 10,
+      ),
+      TweenSequenceItem(tween: Tween<double>(begin: 0.05, end: 0), weight: 10),
+      TweenSequenceItem(tween: ConstantTween<double>(0), weight: 60),
+    ]).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.4, curve: Curves.linear),
+      ),
+    );
   }
 
   @override
@@ -72,12 +102,24 @@ class _DancingDotsState extends State<DancingDots>
                 ),
               );
             }),
+            const SizedBox(width: 10),
             Text(
-              'Typing ',
+              ' Thinking ',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
+              ),
+            ),
+            // Rocket animation
+            Transform.translate(
+              offset: Offset(0, _rocketTranslation.value),
+              child: Transform.rotate(
+                angle: _rocketVibration.value,
+                child: const Text(
+                  '🚀',
+                  style: TextStyle(fontSize: 24, color: Colors.white),
+                ),
               ),
             ),
           ],
