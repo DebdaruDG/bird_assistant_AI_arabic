@@ -16,4 +16,13 @@ class ChatMessage {
     this.isStreaming = false,
     this.id,
   });
+
+  toJson() => {
+    'text': text,
+    'isUser': isUser,
+    'isLoading': isLoading,
+    'isStreaming': isStreaming,
+    'id': id,
+    'audioBytes': audioBytes,
+  };
 }
