@@ -254,7 +254,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8.0),
                       child: Text(
-                        'Error! audio too short, try again..',
+                        " ",
+                        // 'Error! audio too short, try again..',
                         style: TextStyle(
                           color: AppColors.dangerRed,
                           fontSize: 14,
