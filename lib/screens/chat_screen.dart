@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 
 import '../models/chat_model.dart';
 import '../providers/app/theme_provider.dart';
+import '../providers/chat/chat_provider.dart';
 import '../providers/chat/chat_state.dart';
 import '../utils/app_blurred_bg.dart';
 import '../utils/app_text.dart';
 import '../utils/custom_paints/sun_moon.dart';
+import '../utils/dancing_dots.dart';
 import '../utils/input_field.dart';
 import '../utils/playback_bubble.dart';
 import '../utils/typing_indicator.dart';
@@ -83,34 +85,34 @@ class _ChatScreenState extends State<ChatScreen> {
               builder: (context, chatState, child) {
                 return Column(
                   children: [
-                    if (!chatState.isConnected)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 16,
-                        ),
-                        color: Colors.redAccent.withOpacity(0.8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.wifi_off,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            AppText(
-                              'Disconnected. Reconnecting...',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    // if (!chatState.isConnected)
+                    //   Container(
+                    //     width: double.infinity,
+                    //     padding: const EdgeInsets.symmetric(
+                    //       vertical: 8,
+                    //       horizontal: 16,
+                    //     ),
+                    //     color: Colors.redAccent.withOpacity(0.8),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.center,
+                    //       children: [
+                    //         const Icon(
+                    //           Icons.wifi_off,
+                    //           color: Colors.white,
+                    //           size: 18,
+                    //         ),
+                    //         const SizedBox(width: 8),
+                    //         AppText(
+                    //           'Disconnected. Reconnecting...',
+                    //           style: const TextStyle(
+                    //             color: Colors.white,
+                    //             fontWeight: FontWeight.bold,
+                    //             fontSize: 14,
+                    //           ),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
                     if (chatState.chats.isEmpty)
                       Expanded(
                         child: Column(
@@ -141,7 +143,6 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           itemCount: chatState.chats.length,
                           itemBuilder: (context, index) {
-                            log('isLoading - ${chatState.isLoading}');
                             final message =
                                 chatState.chats[chatState.chats.length -
                                     1 -
@@ -151,6 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               context,
                               message,
                               chatState,
+                              index == (chatState.chats.length - 1),
                             );
                           },
                         ),
@@ -178,22 +180,36 @@ class _ChatScreenState extends State<ChatScreen> {
     BuildContext context,
     ChatMessage message,
     ChatState chatState,
+    bool isLastIndex,
   ) {
     final isUser = message.isUser;
     final audioBytes = message.audioBytes;
 
-    if (chatState.isLoading) {
-      return TypingIndicator();
+    if (chatState.isLoading && isLastIndex && !message.isStreaming) {
+      return DancingDots();
     }
 
-    return Align(
+    log('message.audioBytes :- ${message.audioBytes}');
+
+    Widget streamingLogicWidget = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child:
           (message.audioBytes != null)
               ? PlaybackBubble(
                 transcript: message.text,
                 key: widget.key,
-                onPlay: () => chatState.togglePlayPause(audioBytes!),
+                onPlay:
+                    message.isStreaming || message.id == null
+                        ? null // Disable play button during streaming or if no ID
+                        : () => chatState.togglePlayPause(
+                          audioBytes!,
+                          message.id!,
+                          (bytes) => Provider.of<ChatProvider>(
+                            context,
+                            listen: false,
+                          ).playAudio(bytes),
+                        ),
+                isStreaming: message.isStreaming,
               )
               : GlassmorphismCard(
                 blur: 12,
@@ -210,5 +226,62 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
     );
+
+    Widget earlierWidget = Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child:
+          message.isUser == false
+              ? // only for assistant
+              (message.audioBytes != null)
+                  ? Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: PlaybackBubble(
+                      transcript: message.text,
+                      key: widget.key,
+                      onPlay:
+                          () => chatState.togglePlayPause(
+                            audioBytes!,
+                            message.id ?? '',
+                            (bytes) => Provider.of<ChatProvider>(
+                              context,
+                              listen: false,
+                            ).playAudio(audioBytes),
+                          ),
+                    ),
+                  )
+                  : GlassmorphismCard(
+                    blur: 12,
+                    child: Container(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        " ",
+                        // 'Error! audio too short, try again..',
+                        style: TextStyle(
+                          color: AppColors.dangerRed,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  )
+              : Container(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: PlaybackBubble(
+                  transcript: message.text,
+                  key: widget.key,
+                  onPlay:
+                      () => chatState.togglePlayPause(
+                        audioBytes!,
+                        message.id ?? '',
+                        (bytes) => Provider.of<ChatProvider>(
+                          context,
+                          listen: false,
+                        ).playAudio(audioBytes),
+                      ),
+                ),
+              ),
+    );
+
+    return earlierWidget;
   }
 }

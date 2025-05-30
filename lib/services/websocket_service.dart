@@ -41,7 +41,7 @@ class WebSocketService {
       // Listen to incoming messages
       _channel!.stream.listen(
         (message) {
-          developer.log('Received message: $message');
+          // developer.log('Received message: $message');
           try {
             // Attempt to parse JSON, but pass raw message if not JSON
             final decoded = jsonDecode(message);
@@ -73,7 +73,7 @@ class WebSocketService {
       await _ensureConnection();
       final messageJson = message is String ? message : jsonEncode(message);
       _channel!.sink.add(messageJson);
-      developer.log('Sent message: $messageJson');
+      // developer.log('Sent message: $messageJson');
     } catch (e) {
       developer.log('Error sending message: $e');
       rethrow;
