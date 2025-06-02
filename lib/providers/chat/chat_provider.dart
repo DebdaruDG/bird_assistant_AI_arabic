@@ -27,6 +27,7 @@ class ChatProvider {
   bool _isMediaSourceOpen = false;
   final List<Uint8List> _audioChunkQueue = [];
   bool _isProcessingQueue = false;
+  int _expectedChunkIndex = 0; // Added to track expected chunk order
 
   ChatProvider(this._chatState)
     : _webSocketService = WebSocketService(
@@ -87,9 +88,9 @@ class ChatProvider {
           'base64Audio size: ${(base64Audio.length / 1024.0).toStringAsFixed(3)} KB',
         );
 
-        final sendStartTime = DateTime.now().millisecondsSinceEpoch;
+        _chunkSendStartTime = DateTime.now().millisecondsSinceEpoch;
         developer.log(
-          'Timelog - Start sending to WebSocket at: $sendStartTime ms',
+          'Timelog - Start sending to WebSocket at: $_chunkSendStartTime ms',
         );
 
         await sendAudioChunks(base64Audio);
@@ -98,13 +99,13 @@ class ChatProvider {
         developer.log(
           'Timelog - Finished sending to WebSocket at: $sendEndTime ms',
         );
-        final sendDuration = sendEndTime - sendStartTime;
+        final sendDuration = sendEndTime - _chunkSendStartTime!;
         developer.log(
           'Timelog - Time to send to WebSocket: ${sendDuration / 1000} seconds',
         );
 
         _chatState.setSendEndTime(sendEndTime);
-        _chatState.setMicOpenTime(sendStartTime);
+        _chatState.setMicOpenTime(_chunkSendStartTime!);
       });
       developer.log('All audio chunks sent successfully');
     } catch (err) {
@@ -121,11 +122,6 @@ class ChatProvider {
     const int chunkSizeBytes = 20 * 1024;
     final int totalChunks = (base64Audio.length / chunkSizeBytes).ceil();
     developer.log('Splitting into $totalChunks chunk(s)');
-
-    _chunkSendStartTime = DateTime.now().millisecondsSinceEpoch;
-    developer.log(
-      'Timelog - Chunk sending started at: $_chunkSendStartTime ms',
-    );
 
     for (int i = 0; i < totalChunks; i++) {
       final int start = i * chunkSizeBytes;
@@ -190,17 +186,25 @@ class ChatProvider {
       bool isFinal = decoded['isFinal'] ?? false;
       int totalChunks = decoded['totalChunks'] ?? -1;
 
+      developer.log('base64Chunk - $base64Chunk');
       _chunkedAudioMap[chunkIndex] = base64Chunk;
 
       if (base64Chunk.trim().isNotEmpty) {
         try {
           final chunkBytes = base64Decode(base64Chunk);
-          _combinedAudioBytes.addAll(chunkBytes);
-          _audioChunkQueue.add(chunkBytes);
-          developer.log(
-            'Received chunk $chunkIndex, Queue size: ${_audioChunkQueue.length}, '
-            'Total bytes: ${_combinedAudioBytes.length}',
-          );
+          // Validate chunk order
+          if (chunkIndex == _expectedChunkIndex) {
+            _combinedAudioBytes.addAll(chunkBytes);
+            _audioChunkQueue.add(chunkBytes);
+            _expectedChunkIndex++;
+            developer.log(
+              'Received chunk $chunkIndex (in order), Queue size: ${_audioChunkQueue.length}, '
+              'Total bytes: ${_combinedAudioBytes.length}',
+            );
+          } else {
+            developer.log('Out-of-order chunk $chunkIndex, buffering');
+            return; // Wait for correct chunk order
+          }
 
           if (_currentAudioMessageId == null) {
             _firstChunkReceivedTime = DateTime.now().millisecondsSinceEpoch;
@@ -246,10 +250,29 @@ class ChatProvider {
         }
       }
 
+      // Check for missing chunks before finalizing
       if (isFinal && totalChunks > 0 && _chunkedAudioMap.length < totalChunks) {
         developer.log(
           'Warning: Received isFinal but only ${_chunkedAudioMap.length}/$totalChunks chunks received',
         );
+        // Process any buffered out-of-order chunks
+        while (_chunkedAudioMap.containsKey(_expectedChunkIndex)) {
+          final base64Chunk = _chunkedAudioMap[_expectedChunkIndex]!;
+          try {
+            final chunkBytes = base64Decode(base64Chunk);
+            _combinedAudioBytes.addAll(chunkBytes);
+            _audioChunkQueue.add(chunkBytes);
+            developer.log(
+              'Processed buffered chunk $_expectedChunkIndex, Queue size: ${_audioChunkQueue.length}',
+            );
+            _expectedChunkIndex++;
+            _processAudioQueue();
+          } catch (e) {
+            developer.log(
+              '❌ Base64 decode failed on buffered chunk $_expectedChunkIndex: $e',
+            );
+          }
+        }
         return;
       }
 
@@ -289,6 +312,7 @@ class ChatProvider {
         _currentAudioMessageId = null;
         _firstChunkReceivedTime = null;
         _chunkSendStartTime = null;
+        _expectedChunkIndex = 0; // Reset for next audio stream
         _chatState.setReceivingAudioChunks(false);
         _chatState.setLoading(false);
       }
@@ -310,6 +334,14 @@ class ChatProvider {
         _sourceBuffer = _mediaSource!.addSourceBuffer('audio/wav');
         _isMediaSourceOpen = true;
         developer.log('MediaSource opened and SourceBuffer initialized');
+        // Add single updateend listener
+        _sourceBuffer!.addEventListener('updateend', (event) {
+          developer.log(
+            'Updateend fired, queue size: ${_audioChunkQueue.length}',
+          );
+          _isProcessingQueue = false;
+          _processAudioQueue();
+        }, false);
         _processAudioQueue();
       });
 
@@ -349,7 +381,10 @@ class ChatProvider {
     }
 
     _isProcessingQueue = true;
-    _playAudioChunk(_audioChunkQueue.first);
+    // Throttle processing to avoid overwhelming SourceBuffer
+    Future.delayed(Duration(milliseconds: 10), () {
+      _playAudioChunk(_audioChunkQueue.first);
+    });
   }
 
   void _playAudioChunk(Uint8List chunkBytes) {
@@ -365,9 +400,8 @@ class ChatProvider {
       }
 
       if (_sourceBuffer!.updating!) {
-        _sourceBuffer!.addEventListener('updateend', (event) {
-          _appendChunkToSourceBuffer(chunkBytes);
-        }, true);
+        // Wait for updateend (handled by listener in _initializeMediaSource)
+        developer.log('SourceBuffer is updating, waiting for updateend');
       } else {
         _appendChunkToSourceBuffer(chunkBytes);
       }
@@ -382,19 +416,20 @@ class ChatProvider {
 
   void _appendChunkToSourceBuffer(Uint8List chunkBytes) {
     try {
+      // Synchronize with playback timeline
+      if (_sourceBuffer!.timestampOffset == 0) {
+        _sourceBuffer!.timestampOffset = _audioElement!.currentTime ?? 0;
+      }
       developer.log(
-        'Processing chunk. Queue size: ${_audioChunkQueue.length}, '
-        'Total bytes accumulated: ${_combinedAudioBytes.length}',
+        'Appending chunk at playback time: ${_audioElement!.currentTime}, '
+        'timestampOffset: ${_sourceBuffer!.timestampOffset}',
       );
-
       _sourceBuffer!.appendBuffer(chunkBytes.buffer);
       developer.log(
         'Appended chunk to SourceBuffer, size: ${chunkBytes.length} bytes',
       );
-
       _audioChunkQueue.removeAt(0);
-      _isProcessingQueue = false;
-      _processAudioQueue();
+      // Note: updateend listener in _initializeMediaSource handles next chunk
     } catch (e) {
       developer.log('Error appending chunk to SourceBuffer: $e');
       _chatState.addChatMessage(
@@ -507,6 +542,7 @@ class ChatProvider {
     }
     _audioChunkQueue.clear();
     _isProcessingQueue = false;
+    _expectedChunkIndex = 0; // Reset chunk index
     _chatState.stopPlayback();
   }
 
@@ -576,5 +612,6 @@ class ChatProvider {
     _chunkedAudioMap.clear();
     _currentAudioMessageId = null;
     _chunkSendStartTime = null;
+    _expectedChunkIndex = 0;
   }
 }
