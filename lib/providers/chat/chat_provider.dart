@@ -142,10 +142,16 @@ class ChatProvider {
         "audio": chunk,
       };
 
-      await _webSocketService.sendMessage(eventOfBirdAssistant);
-      developer.log('Sent chunk ${i + 1}/$totalChunks');
+      developer.log('eventOfBirdAssistant - $eventOfBirdAssistant');
 
-      await Future.delayed(Duration(milliseconds: 50));
+      try {
+        await _webSocketService.sendMessage(eventOfBirdAssistant);
+        developer.log('Sent chunk ${i + 1}/$totalChunks');
+
+        await Future.delayed(Duration(milliseconds: 50));
+      } catch (err) {
+        developer.log('eventOfBirdAssistant error - $err');
+      }
     }
   }
 
