@@ -137,8 +137,8 @@ class ChatProvider {
 
       final eventOfBirdAssistant = {
         "action": "BirdInstructor",
-        "chunkIndex": i,
-        "totalChunks": totalChunks,
+        // "chunkIndex": i,
+        // "totalChunks": totalChunks,
         "audio": chunk,
       };
 
@@ -209,7 +209,7 @@ class ChatProvider {
             );
           } else {
             developer.log('Out-of-order chunk $chunkIndex, buffering');
-            return; // Wait for correct chunk order
+            return;
           }
 
           if (_currentAudioMessageId == null) {
